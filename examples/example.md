@@ -49,7 +49,7 @@ Set xyz to 1 and exclude result from output:
 ```
 
 Compare xyz to 1, show 'xyz is not 1' if false:
-```js
+```
 {{#def.xyz === 1 || 'xyz is not 1'}}
 
 {{ if ({{#!def.abc}}) { }}
