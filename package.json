@@ -1,5 +1,5 @@
 {
-  "name": "dotx",
+  "name": "xdot",
   "version": "1.0.0",
   "description": "",
   "module": "dist/esm/index.js",
@@ -10,12 +10,12 @@
     "browser"
   ],
   "browser": {
-    "./dist/cjs/index.js": "./browser/dotx.umd.js"
+    "./dist/cjs/index.js": "./browser/xdot.umd.js"
   },
   "exports": {
     ".": {
-      "import": "./browser/dotx.es.js",
-      "require": "./browser/dotx.umd.js"
+      "import": "./browser/xdot.es.js",
+      "require": "./browser/xdot.umd.js"
     }
   },
   "scripts": {

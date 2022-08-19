@@ -13,9 +13,9 @@ export default defineConfig({
         outDir: './browser',
         lib: {
             entry: path.resolve(__dirname, 'src/index.ts'),
-            name: 'dotx',
+            name: 'xdot',
             formats: ['es', 'umd'],
-            fileName: (format) => `dotx.${format}.js`,
+            fileName: (format) => `xdot.${format}.js`,
         },
     },
 });

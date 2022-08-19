@@ -1,8 +1,8 @@
-# DoTx
+# xDoT
 
-<img alt="npm" src="https://img.shields.io/npm/v/dotx"> <img alt="npm" src="https://img.shields.io/npm/dm/dotx?label=npm"> <img alt="npm type definitions" src="https://img.shields.io/npm/types/dotx"> <img alt="GitHub" src="https://img.shields.io/github/license/udamir/dotx">
+<img alt="npm" src="https://img.shields.io/npm/v/xdot"> <img alt="npm" src="https://img.shields.io/npm/dm/xdot?label=npm"> <img alt="npm type definitions" src="https://img.shields.io/npm/types/xdot"> <img alt="GitHub" src="https://img.shields.io/github/license/udamir/xdot">
 
-Small, fast and powerfull temlate engine - [online demo](https://udamir.github.io/dotx/)
+Small, fast and powerfull temlate engine - [online demo](https://udamir.github.io/xdot/)
 
 This engine is based on [doT.js](https://github.com/olado/doT) by Laura Doktorova [@olado](http://twitter.com/olado)
 
@@ -27,14 +27,14 @@ This engine is based on [doT.js](https://github.com/olado/doT) by Laura Doktorov
 
 ## Installation
 ```SH
-npm install dotx --save
+npm install xdot --save
 ```
 
 ## Usage
 
 ### Nodejs
 ```ts
-import { template } from 'dotx'
+import { template } from 'xdot'
 
 const t = template("<div>Hi {{=it.name}}!</div>\n<div>{{=it.age || ''}}</div>")
 
@@ -55,7 +55,7 @@ It is strongly recommended to compile all templates to JS code as early as possi
 
 
 ## Contributing
-When contributing, keep in mind that it is an objective of `dotx` to have no package dependencies. This may change in the future, but for now, no-dependencies.
+When contributing, keep in mind that it is an objective of `xdot` to have no package dependencies. This may change in the future, but for now, no-dependencies.
 
 Please run the unit tests before submitting your PR: `npm test`. Hopefully your PR includes additional unit tests to illustrate your change/modification!
 
