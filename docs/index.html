@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+  <meta name="description"
+    content="doTx - the fastest and concise javascript template engine for Node.js and browsers" />
+  <style>
+    body {
+      background-color: #f4f4f4;
+      color: #555;
+      max-width: 800px;
+      padding: 20px;
+      font-size: 16px;
+      font-weight: 200;
+      margin: 0 auto;
+      font-family: Helvetica Neue, arial, verdana
+    }
+
+    h1 {
+      color: #708090;
+      text-shadow: 0 1px 2px #fff;
+      font-size: 4em;
+      text-align: center
+    }
+
+    .subtitle {
+      text-align: center;
+      margin-bottom: 60px
+    }
+
+    h2 {
+      text-shadow: 0 1px 2px #fff
+    }
+
+    h2 span {
+      font-weight: 200;
+      font-size: 14px
+    }
+
+    a {
+      color: #2B80FF
+    }
+
+    .smaller {
+      font-size: .8em
+    }
+
+    h4 {
+      margin: 4px 0;
+      font-weight: 400;
+      font-size: 20px
+    }
+
+    textarea {
+      border: 1px solid lightgrey;
+      outline: none;
+      font-size: 14px;
+      width: 96%;
+      height: 210px;
+      padding: 10px;
+      text-align: left
+    }
+
+    .templategroup,
+    .datagroup,
+    .functiongroup,
+    .resultgroup {
+      width: 48%;
+      margin: 4px 2% 4px 0;
+      float: left;
+      min-width: 300px
+    }
+
+    .function,
+    .result {
+      background: #DDD;
+      height: 212px;
+      padding: 10px;
+      font-size: 14px;
+      overflow-y: auto
+    }
+
+    .definegroup {
+      display: none
+    }
+
+    .templategroup.withdefs .definegroup {
+      display: block
+    }
+
+    .templategroup.withdefs .template {
+      height: 90px
+    }
+
+    textarea.defines {
+      height: 60px
+    }
+
+    .stripgroup {
+      padding-top: 8px;
+      width: 160px;
+      float: left
+    }
+
+    code {
+      font-size: 14px;
+      font-weight: bold
+    }
+
+    #sampletabs {
+      list-style: none;
+      margin: 0;
+      padding: 0
+    }
+
+    #sampletabs li {
+      float: left;
+      margin: 4px;
+      padding: 4px 8px;
+      background: #DDD;
+      cursor: pointer
+    }
+
+    #sampletabs li.active {
+      background: #2B80FF;
+      color: #FFF
+    }
+
+    @media all and (max-width:740px) {
+
+      .templategroup,
+      .datagroup,
+      .functiongroup,
+      .resultgroup {
+        width: 100%;
+        margin-right: 0
+      }
+
+      pre {
+        overflow-x: scroll
+      }
+    }
+  </style>
+  <title>doTx - the fastest and concise javascript template engine for Node.js and browsers</title>
+</head>
+
+<body>
+  <a href="http://github.com/udamir/dotx"><img style="position: absolute; top: 0; left: 0; border: 0;"
+      src="https://camo.githubusercontent.com/567c3a48d796e2fc06ea80409cc9dd82bf714434/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f6461726b626c75655f3132313632312e706e67"
+      alt="Fork me on GitHub"></a>
+
+  <h2 class="subtitle">The fastest + concise javascript template engine<br />for Node.js and browsers.</h2>
+
+  <h2>Origins</h2>
+  <p>
+    doTx is based on <a href="https://github.com/olado/doT">dotjs</a> template engine <b>by Laura Doktorova</b>, but converted to TypeScript and included some enhancements 
+  </p>
+
+  <h2>Source</h2>
+  <a href="https://github.com/udamir/dotx">github.com/udamir/dotx</a>
+
+  <h2>Usage <span>play with it, edit and see results as you type</span></h2>
+  <div id="samples">
+    <ul id="sampletabs"></ul>
+    <div class="stripgroup">
+      <input id="strip" type="checkbox" checked="checked" />
+      <label for="strip">Strip whitespaces</label>
+    </div>
+    <div style="clear:both;height:10px"></div>
+    <div class="templategroup">
+      <h4>Template</h4>
+      <textarea autocomplete="off" class="template"></textarea>
+      <div class="definegroup">
+        <h4>Compile-time defines (def)</h4>
+        <textarea autocomplete="off" class="defines"></textarea>
+      </div>
+    </div>
+    <div class="functiongroup">
+      <h4>DoTx.template compiles it into</h4>
+      <div class="function">
+      </div>
+    </div>
+    <div style="clear:both"></div>
+    <div class="datagroup">
+      <h4>Data</h4>
+      <textarea autocomplete="off" class="data"></textarea>
+    </div>
+    <div class="resultgroup">
+      <h4>Result</h4>
+      <div class="result">
+      </div>
+    </div>
+  </div>
+  <div style="clear:both"></div>
+  <h3>Compile time evaluation vs Runtime evaluation</h3>
+  You can improve performance further if you use compile time evaluation. It is useful in cases when the data that you
+  want to use are not changing with each run of the template. Think of it as defines or constant variables.
+  <p>It is also used to statically compile partials. This comes in handy when you want to include similar header and
+    footer on multiple pages. doT also allows to customize partial right from the template that will include it.</p>
+  Check <a href="https://github.com/udamir/dotx/blob/master/docs/example.md">advanced sample</a> for hints on how to
+  use defines and partials.
+</body>
+<script src="https://cdn.jsdelivr.net/npm/dotx@latest"></script>
+<script src="http://code.jquery.com/jquery.min.js"></script>
+
+<script type="text/javascript">
+  const encodeHTML = window._encodeHTML || doT.encodeHTML()
+  const samples = {
+    interpolation: {
+      template: "<div>Hi {{=it.name}}!</div>\n<div>{{=it.age || ''}}</div>",
+      data: { name: "Jake", age: 31 },
+    },
+    evaluation: {
+      template: "{{ for(var prop in it) { }}\n<div>{{=prop}}</div>\n{{ } }}",
+      data: {
+        name: "Jake",
+        age: 31,
+        mother: "Kate",
+        father: "John",
+        interests: ["basketball", "hockey", "photography"],
+        contact: { email: "jake@xyz.com", phone: "999999999" },
+      },
+    },
+    nested: {
+      template: "{{##def.snippet:\n<div>{{=it.name}}</div>{{#def.joke}}\n#}}\n\n{{#def.snippet}}",
+      data: { name: "Jake", age: 31 },
+      def: { joke: "<div>{{=it.name}} who?</div>" },
+    },
+    conditionals: {
+      template:
+        "{{? it.name }}\n<div>Oh, I love your name, {{=it.name}}!</div>\n{{?? it.age === 0}}\n<div>Guess nobody named you yet!</div>\n{{??}}\nYou are {{=it.age}} and still don't have a name?\n{{?}}",
+      data: { name: "Jake", age: 31 },
+    },
+    arrays: {
+      template: "{{~it.array :value:index}}\n<div>{{=value}}!</div>\n{{~}}",
+      data: { array: ["banana", "apple", "orange"] },
+    },
+    encode: { template: "Visit {{!it.uri}}", data: { uri: "https://github.com/olado/doT" } },
+  }
+  var br = $("#samples .result"),
+    bf = $("#samples .function"),
+    bdef = $("#samples .defines"),
+    tg = $(".templategroup"),
+    bt = $("#samples .template"),
+    bd = $("#samples .data"),
+    bs = $("#sampletabs"),
+    data = {},
+    def,
+    fn
+  function onTemplate(tmpl) {
+    var text, error
+    try {
+      var tmpdef = $.extend({}, def)
+      fn = text = doT.template(tmpl, undefined, tmpdef)
+    } catch (e) {
+      fn = undefined
+      error = text = "Template has an error: " + e
+    }
+    bf.html(encodeHTML(text))
+    br.html(error ? "Fix the template" : encodeHTML(fn(data)).replace(/\n/g, "<br/>"))
+  }
+  function newSample(s) {
+    $("ul .active").removeClass("active")
+    $("#x" + s).addClass("active")
+    var sample = samples[s]
+    data = $.extend({}, sample.data)
+    def = sample.def ? $.extend({}, sample.def) : undefined
+    if (def) {
+      bdef.val(JSON.stringify(def))
+      tg.addClass("withdefs")
+    } else {
+      tg.removeClass("withdefs")
+      bdef.val("")
+    }
+    bt.val(sample.template)
+    bd.val(JSON.stringify(sample.data))
+    onTemplate(sample.template)
+  }
+  bt.keyup(function () {
+    onTemplate(this.value)
+  })
+  bdef.keyup(function () {
+    var error
+    try {
+      eval("def=(" + this.value + ")")
+    } catch (e) {
+      def = undefined
+      error = "Defs error: " + e
+    }
+    onTemplate(bt.val())
+  })
+  bd.keyup(function () {
+    var error
+    try {
+      eval("data=(" + this.value + ")")
+    } catch (e) {
+      data = {}
+      error = "Data error: " + e
+    }
+    br.html(error ? "Fix the template" : encodeHTML(fn(data)).replace(/\n/g, "<br/>"))
+  })
+  $("#strip").change(function () {
+    doT.templateSettings.strip = this.checked
+    onTemplate(bt.val())
+  })
+  bs.click(function (event) {
+    newSample(event.target.id.substring(1))
+  })
+  var tmp = ""
+  for (var s in samples) {
+    if (samples.hasOwnProperty(s)) {
+      tmp += "<li id='x" + s + "'>" + s + "</li>"
+    }
+  }
+  bs.html(tmp)
+  newSample("interpolation")
+</script>
+
+</html>
