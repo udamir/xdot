@@ -3,10 +3,12 @@ import { template as t } from "../src"
 describe("without index", () => {
   it("should repeat string N times", () => {
     expect(t("{{~it.arr:x}}\n*\n{{~}}", { strip: false })({arr: Array(3)})).toEqual("*\n*\n*\n")
+    expect(t("{{~it.arr:x}}\n*\n{{~}}", { strip: true })({arr: Array(3)})).toEqual("***")
   })
 
   it("should concatenate items", () => {
     expect(t("{{~it.arr:x}}\n{{=x}}\n{{~}}", { strip: false })({arr: [1, 2, 3]})).toEqual("1\n2\n3\n")
+    expect(t("{{~it.arr:x}}\n{{=x}}\n{{~}}", { strip: true })({arr: [1, 2, 3]})).toEqual("123")
   })
 })
 

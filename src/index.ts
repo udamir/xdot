@@ -42,7 +42,7 @@ const defaultSyntax = {
   define: /\{\{##\s*([\w\.$]+)\s*(\:|=)([\s\S]+?)#\}\}(\n)?/g,
   defineParams: /^\s*([\w$]+):([\s\S]+)/,
   conditional: /\{\{\?(\?)?\s*([\s\S]*?)\s*\}\}(\n)?/g,
-  iterate: /\{\{~\s*(?:\}\}|([\s\S]+?)\s*\:\s*([\w$]+)\s*(?:\:\s*([\w$]+))?\s*\}\})(\n)?/g,
+  iterate: /\{\{(~+)\s*(?:\}\}|([\s\S]+?)\s*\:\s*([\w$]+)\s*(?:\:\s*([\w$]+))?\s*\}\})(\n)?/g,
 }
 
 const escapeCharacters = /([{}[\]()<>\\\/^$\-.+*?!=|&:])/g
@@ -118,8 +118,7 @@ export function template(
       .replace(/'|\\/g, "\\$&")
       .replace(syntax.interpolate, (_, code) => `'+(${unescape(code)})+'`)
       .replace(syntax.typeInterpolate, (_, typ: TypePrefix, code) => {
-        sid++
-        const val = options.internalPrefix + sid
+        const val = options.internalPrefix + sid++
         const error = `throw new Error("expected ${TYPES[typ]}, got "+ (typeof ${val}))`
         return `';const ${val}=(${unescape(code)});if(typeof ${val}!=="${
           TYPES[typ]
@@ -138,15 +137,20 @@ export function template(
         }
         return elseCase ? "';}else{out+='" : "';}out+='"
       })
-      .replace(syntax.iterate, (_, arr, vName, iName) => {
+      .replace(syntax.iterate, (_, loop, arr, vName, iName) => {
         if (!arr) return "';} } out+='"
-        sid++
         const defI = iName ? `let ${iName}=-1;` : ""
         const incI = iName ? `${iName}++;` : ""
-        const val = options.internalPrefix + sid
-        return `';const ${val}=${unescape(
-          arr
-        )};if(${val}){${defI}for (const ${vName} of ${val}){${incI}out+='`
+        const val = options.internalPrefix + sid++
+        switch (loop) {
+          case "~":
+            return `';const ${val}=${unescape(arr)};if(${val}){${defI}for (const ${vName} of ${val}){${incI}out+='`
+          case "~~":
+            const iter = iName ? `[${iName}, ${vName}] of Object.entries` : `${vName} of Object.values`
+            return `';const ${val}=${unescape(arr)};if(${val}){for (const ${iter}(${val})){out+='`
+          default:
+            throw new Error(`unsupported syntax: ${loop} ${arr}:${vName}`)
+        }
       })
       .replace(syntax.evaluate, (_, code) => `';${unescape(code)}out+='`) +
     "';return out;"

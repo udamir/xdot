@@ -11,6 +11,7 @@ This engine is based on [doT.js](https://github.com/olado/doT) by Laura Doktorov
 - Nested templates with param support: `{{$def.nested:it.data}}`
 - Stripe option is `false` by default
 - `{{# }}`, `{{? }}`, `{{~ }}` blocks are not adding line breaks in template
+- `{{~~it :value :key }}` block for object iteration
 - Removed delimiter configuration globally via `SetDelimiters`
 - Jest tests instead of Mocha
 
@@ -19,7 +20,7 @@ This engine is based on [doT.js](https://github.com/olado/doT) by Laura Doktorov
 - Compile-time evaluation
 - PartiNested templates support
 - Conditionals support
-- Array iterators
+- Array/Object iterators
 - Control whitespace - strip or preserve
 - Streaming friendly
 - Typescript syntax support out of the box
