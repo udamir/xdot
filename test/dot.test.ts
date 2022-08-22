@@ -75,7 +75,7 @@ describe("custom encoders", () => {
     it("should run specified encoder", () => {
       const cfg: Partial<TemplateOptions> = {
         encoders: {
-          str: JSON.stringify,
+          str: "JSON.stringify",
           rx: (s) => new RegExp(s).toString(),
         },
       }
@@ -98,18 +98,17 @@ describe("custom encoders", () => {
     it("should throw compile time exception if encoder is not specified", () => {
       const cfg: Partial<TemplateOptions> = {
         encoders: {
-          str: JSON.stringify,
+          str: "JSON.stringify",
         },
       }
       expect(() => t("{{str! it}}", cfg)).not.toThrowError()
-      expect(() => t("{{rx! it}}", cfg)).toThrowError(/unknown encoder/)
+      expect(() => t("{{rx! it}}", cfg)).toThrowError(/Unknown encoder/)
     })
   })
 
   describe("selfContained: true", () => {
     it("should inline specified encoders passed as strings", () => {
       const cfg: Partial<TemplateOptions> = {
-        selfContained: true,
         encoders: {
           str: "JSON.stringify",
           rx: "(s) => new RegExp(s).toString()",
@@ -121,7 +120,6 @@ describe("custom encoders", () => {
 
     it("should encode HTML with inlined HTML encoder", () => {
       const cfg: Partial<TemplateOptions> = {
-        // selfContained: true,
         encoders: {
           "": encodeHtml
         },
@@ -134,13 +132,12 @@ describe("custom encoders", () => {
 
     it("should throw compile-time exception if encoder is not specified", () => {
       const cfg: Partial<TemplateOptions> = {
-        selfContained: true,
         encoders: {
           str: "JSON.stringify",
         },
       }
       expect(() => t("{{str! it}}", cfg)).not.toThrowError()
-      expect(() => t("{{rx! it}}", cfg)).toThrowError(/unknown encoder/)
+      expect(() => t("{{rx! it}}", cfg)).toThrowError(/Unknown encoder/)
     })
 
     it("should throw compile-time exception if encoder is of incorrect type", () => {
@@ -150,18 +147,20 @@ describe("custom encoders", () => {
           rx: "(s) => new RegExp(s).toString()",
         },
       }
-      expect(() => t("{{str! it}}", cfg)).not.toThrowError()
-      expect(() => t("{{rx! it}}", {...cfg, selfContained: true})).not.toThrowError()
-      expect(() => t("{{str! it}}", {...cfg, selfContained: true})).toThrowError(/encoder type must be "string"/)
-      expect(() => t("{{rx! it}}", cfg)).toThrowError(/encoder type must be "function"/)
+      expect(() => t("{{str! it}}", cfg)).toThrowError()
+      expect(() => t("{{rx! it}}", cfg)).not.toThrowError()
     })
   })
 })
 
 describe("context destructuring", () => {
-  it('should interpolate properties without "it"', () => {
-    const tmpl = t("{{=foo}}{{=bar}}", {argName: ["foo", "bar"]})
-    expect(tmpl({foo: 1, bar: 2})).toEqual("12")
+  it('should interpolate custom arguments', () => {
+    const tmpl = t("{{=foo}}{{=bar}}", {args: ["foo", "bar"]})
+    expect(tmpl(1, 2)).toEqual("12")
+  })
+  it('should interpolate arguments defined in template', () => {
+    const tmpl = t("{{:foo:bar}}{{=foo}}{{=bar}}")
+    expect(tmpl(1, 2)).toEqual("12")
   })
 })
 

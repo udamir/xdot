@@ -1,8 +1,8 @@
-import { template as t, compile as c } from "../src" 
+import { template as t } from "../src" 
 
 describe("defines", () => {
-  function testDef(tmpl: string, defines={}) {
-    const fn = c(tmpl, defines)
+  function testDef(tmpl: string, def={}) {
+    const fn = t(tmpl, { def })
     expect(fn({foo: "http"})).toEqual("<div>http</div>")
     expect(fn({foo: "http://abc.com"})).toEqual("<div>http://abc.com</div>")
     expect(fn({})).toEqual("<div>undefined</div>")
@@ -18,7 +18,7 @@ describe("defines", () => {
     })
 
     it("should render define if it is passed to compile", () => {
-      expect(t("{{#def.tmp:it.foo}}", {}, {tmp: "<div>{{=it.a}}+{{=it.b}}</div>"})({ foo: { a: 1, b: 2 } })).toEqual("<div>1+2</div>")
+      expect(t("{{#def.tmp:it.foo}}", { def: {tmp: "<div>{{=it.a}}+{{=it.b}}</div>" }})({ foo: { a: 1, b: 2 } })).toEqual("<div>1+2</div>")
     })
   })
 
@@ -79,7 +79,7 @@ describe("defines", () => {
     })
 
     it("should render define with array literal as parameter", () => {
-      const tmpl = c("{{## def.tmp:foo:{{~foo:x}}{{=x}}{{~}} #}}{{# def.tmp:[1,2,3] }}")
+      const tmpl = t("{{## def.tmp:foo:{{~foo:x}}{{=x}}{{~}}#}}{{# def.tmp:[1,2,3] }}")
       expect(tmpl({})).toEqual("123")
     })
   })

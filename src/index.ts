@@ -1,54 +1,18 @@
+export type Encoder = (data: any) => string
+
 export interface TemplateOptions {
-  argName: string | string[]
+  args: string | string[]
   encoders: Record<string, Encoder | string>
-  selfContained: boolean
   strip: boolean
-  internalPrefix: string
-  encodersPrefix: string
-  delimiters: Delimiters
+  varName: string
+  delimiters: [string, string]
+  def: Definitions
 }
 
-type TemplateFunction = (data: any) => string
-
+export type RenderFunction = (...args: any[]) => string
+type RuleContext = TemplateOptions & { id: number, args: string[], dependency: Set<string> }
+type SyntaxRule = (template: string, ctx: RuleContext) => string
 type Definitions = Record<string, string | Function | any>
-
-type Encoder = (data: any) => string
-
-type Delimiters = {
-  start: string
-  end: string
-}
-
-const defaultOptions = {
-  argName: "it",
-  encoders: {},
-  selfContained: false,
-  strip: true,
-  internalPrefix: "_val",
-  encodersPrefix: "_enc",
-  delimiters: {
-    start: "{{",
-    end: "}}",
-  },
-}
-
-const defaultSyntax = {
-  evaluate: /\{\{([\s\S]+?(\}?)+)\}\}/g, // {{ Math.random() }}
-  interpolate: /\{\{=([\s\S]+?)\}\}/g, // {{ it.foo }}
-  typeInterpolate: /\{\{%([nsb])=([\s\S]+?)\}\}/g, // {{ %n =it.value }}
-  encode: /\{\{([a-z_$]+[\w$]*)?!([\s\S]+?)\}\}/g, // {{ html! it.text }}
-  use: /\{\{#([\s\S]+?)\}\}/g, // {{ #def.block }}
-  useParams: /(^|[^\w$])def(?:\.|\[[\'\"])([\w$\.]+)(?:[\'\"]\])?\s*\:\s*([\w$]+(?:\.[\w$]+|\[[^\]]+\])*|\"[^\"]+\"|\'[^\']+\'|\{[^\}]+\}|\[[^\]]*\])/g,
-  define: /\{\{##\s*([\w\.$]+)\s*(\:|=)([\s\S]+?)#\}\}(\n)?/g,
-  defineParams: /^\s*([\w$]+):([\s\S]+)/,
-  conditional: /\{\{\?(\?)?\s*([\s\S]*?)\s*\}\}(\n)?/g,
-  iterate: /\{\{(~+)\s*(?:\}\}|([\s\S]+?)\s*\:\s*([\w$]+)\s*(?:\:\s*([\w$]+))?\s*\}\})(\n)?/g,
-}
-
-const escapeCharacters = /([{}[\]()<>\\\/^$\-.+*?!=|&:])/g
-const regexpPattern = /^\/(.*)\/([\w]*)$/
-
-type Syntax = typeof defaultSyntax
 type TypePrefix = "n" | "s" | "b"
 
 const TYPES: Record<TypePrefix, string> = {
@@ -57,16 +21,20 @@ const TYPES: Record<TypePrefix, string> = {
   b: "boolean",
 }
 
-function resolveDefs(options: TemplateOptions, syntax: Syntax, block: string | number, def: Definitions): string {
-  return (typeof block === "string" ? block : block.toString())
-    .replace(syntax.define, (_, code: string, assign: string, value: string) => {
+const escape = (str: string) => str.replace(/([{}[\]()<>\\\/^$\-.+*?!=|&:])/g, "\\$1")
+const unescape = (code: string) => code.replace(/\\('|\\)/g, "$1").replace(/[\r\t\n]/g, " ")
+
+const inlineTemplate: SyntaxRule = (template, { delimiters: [start, end], def }): string =>
+  template.replace(
+    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(\\:|=)([\\s\\S]+?)#${end}(\\r\\n|\\r|\\n)?`, "g"),
+    (_, code: string, assign: string, value: string, eol: string) => {
       if (code.indexOf("def.") === 0) {
         code = code.substring(4)
       }
       if (!(code in def)) {
         if (assign === ":") {
-          value.replace(syntax.defineParams, (_, param: string, v: string) => {
-            def[code] = {arg: param, text: v}
+          value.replace(/^\s*([\w$]+):([\s\S]+)/, (_, param: string, v: string) => {
+            def[code] = { arg: param, text: v }
             return ""
           })
           if (!(code in def)) def[code] = value
@@ -75,175 +43,174 @@ function resolveDefs(options: TemplateOptions, syntax: Syntax, block: string | n
         }
       }
       return ""
-    })
-    .replace(syntax.use, (_, code: string) => {
-      code = code.replace(syntax.useParams, (_, s, d, param) => {
-        const rw = unescape((d + ":" + param).replace(/'|\\/g, "_"))
-        def.__exp = def.__exp || {}
-        const defText = typeof def[d] === "string" ? def[d] : def[d].text
-        const defArg = typeof def[d] === "string" ? options.argName : def[d].arg
-        def.__exp[rw] = defText.replace(new RegExp(`(^|[^\\w$])${defArg}([^\\w$])`, "g"),`$1${param}$2`)
-        return s + `def.__exp['${rw}']`
-      })
-      const v = new Function("def", "return " + code)(def)
-      return v ? resolveDefs(options, syntax, v, def) : v
-    })
-}
-
-function unescape(code: string) {
-  return code.replace(/\\('|\\)/g, "$1").replace(/[\r\t\n]/g, " ")
-}
-
-export function template(
-  tmpl: string,
-  opt?: Partial<TemplateOptions>,
-  def?: Definitions
-): TemplateFunction {
-  const options: TemplateOptions = {...defaultOptions, ...opt}
-  const syntax = getSyntax(options.delimiters)
-  let sid = 0
-  let str = resolveDefs(options, syntax, tmpl, def || {})
-  const needEncoders: Record<string, boolean> = {}
-
-  str = (
-    "let out='" +
-    (options.strip
-      ? str
-          .trim()
-          .replace(/[\t ]+(\r|\n)/g, "\n") // remove trailing spaces
-          .replace(/(\r|\n)[\t ]+/g, " ") // leading spaces reduced to " "
-          .replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g, "") // remove breaks, tabs and JS comments
-      : str
-    )
-      .replace(/'|\\/g, "\\$&")
-      .replace(syntax.interpolate, (_, code) => `'+(${unescape(code)})+'`)
-      .replace(syntax.typeInterpolate, (_, typ: TypePrefix, code) => {
-        const val = options.internalPrefix + sid++
-        const error = `throw new Error("expected ${TYPES[typ]}, got "+ (typeof ${val}))`
-        return `';const ${val}=(${unescape(code)});if(typeof ${val}!=="${
-          TYPES[typ]
-        }") ${error};out+=${val}+'`
-      })
-      .replace(syntax.encode, (_, enc = "", code) => {
-        needEncoders[enc] = true
-        code = unescape(code)
-        const e = options.selfContained ? enc : enc ? "." + enc : '[""]'
-        return `'+${options.encodersPrefix}${e}(${code})+'`
-      })
-      .replace(syntax.conditional, (_, elseCase, code) => {
-        if (code) {
-          code = unescape(code)
-          return elseCase ? `';}else if(${code}){out+='` : `';if(${code}){out+='`
-        }
-        return elseCase ? "';}else{out+='" : "';}out+='"
-      })
-      .replace(syntax.iterate, (_, loop, arr, vName, iName) => {
-        if (!arr) return "';} } out+='"
-        const defI = iName ? `let ${iName}=-1;` : ""
-        const incI = iName ? `${iName}++;` : ""
-        const val = options.internalPrefix + sid++
-        switch (loop) {
-          case "~":
-            return `';const ${val}=${unescape(arr)};if(${val}){${defI}for (const ${vName} of ${val}){${incI}out+='`
-          case "~~":
-            const iter = iName ? `[${iName}, ${vName}] of Object.entries` : `${vName} of Object.values`
-            return `';const ${val}=${unescape(arr)};if(${val}){for (const ${iter}(${val})){out+='`
-          default:
-            throw new Error(`unsupported syntax: ${loop} ${arr}:${vName}`)
-        }
-      })
-      .replace(syntax.evaluate, (_, code) => `';${unescape(code)}out+='`) +
-    "';return out;"
+    }
   )
+  
+const resolveDefs: SyntaxRule = (template, ctx): string =>
+  template.replace(
+    /\{\{#([\s\S]+?)\}\}(\r\n|\r|\n)?/g, 
+    (_, code: string) => {
+      const { args, delimiters: [start, end], def } = ctx
+      code = code.replace(
+        /(^|[^\w$])def(?:\.|\[[\'\"])([\w$\.]+)(?:[\'\"]\])?\s*\:\s*([\w$]+(?:\.[\w$]+|\[[^\]]+\])*|\"[^\"]+\"|\'[^\']+\'|\{[^\}]+\}|\[[^\]]*\])/g, 
+        (_, s, d, param) => {
+          const rw = unescape((d + ":" + param).replace(/'|\\/g, "_"))
+          def.__exp = def.__exp || {}
+          const defText = typeof def[d] === "string" ? def[d] : def[d].text
+          const defArg = typeof def[d] === "string" ? args : def[d].arg
+          def.__exp[rw] = defText.replace(new RegExp(`(^|[^\\w$])${defArg}([^\\w$])`, "g"),`$1${param}$2`)
+          return s + `def.__exp['${rw}']`
+        }
+      )
+      const v = new Function("def", "return " + code)(def)
+      return v ? resolveDefs(v, ctx) : v
+    }
+  )
+
+const format: SyntaxRule = (template, { strip }) =>
+  (!strip ? template : template  
+    .trim()
+    .replace(/[\t ]+(\r|\n)/g, "\n") // remove trailing spaces
+    .replace(/(\r|\n)[\t ]+/g, " ") // leading spaces reduced to " "
+    .replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g, "") // remove breaks, tabs and JS comments
+  ).replace(/'|\\/g, "\\$&")
+
+const interpolate: SyntaxRule = (template, { delimiters: [start, end] }) =>
+  template.replace(
+    new RegExp(`${start}=([\\s\\S]+?)${end}`, "g"),
+    (_, code) => `'+(${unescape(code)})+'`
+  )
+
+const typeInterpolate: SyntaxRule = (template, ctx) => {
+  const { delimiters: [start, end], varName: tmp } = ctx
+  return template.replace(
+    new RegExp(`${start}%([nsb])=([\\s\\S]+?)${end}`, "g"),
+    (_, typ: TypePrefix, code) => {
+      const val = `${tmp}[${ctx.id++}]`
+      const error = `throw new Error("expected ${TYPES[typ]}, got "+ (typeof ${val}))`
+      return `';${val}=(${unescape(code)});if(typeof ${val}!=="${TYPES[typ]}") ${error};${tmp}[0]+=${val}+'`
+    }
+  )
+}
+
+const encode: SyntaxRule = (template,  { delimiters: [start, end], dependency, varName: tmp }) => 
+  template.replace(
+    new RegExp(`${start}([a-z_$]+[\\w$]*)?!([\\s\\S]+?)${end}`,"g"), 
+    (_, enc = "", code) => {
+      dependency.add(enc || "")
+      return `'+${tmp}.${enc || "html"}(${unescape(code)})+'`
+    }
+  )
+
+const conditional: SyntaxRule = (template, { varName: tmp, delimiters: [start, end] }) =>
+  template.replace(
+    new RegExp(`${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*${end}(\\r\\n|\\r|\\n)?`, "g"),
+    (_, elseCase, code, eol) => {
+      return code
+        ? `';${elseCase ? "}else " : ""}if(${unescape(code)}){${tmp}[0]+='`
+        : elseCase ? `';}else{${tmp}[0]+='` : `';}${tmp}[0]+='`
+    }
+  )
+
+const iterate: SyntaxRule = (template, ctx) => {
+  const { varName: tmp, delimiters: [start, end] } = ctx
+  return template.replace(
+    new RegExp(`${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*${end})(\\r\\n|\\r|\\n)?`,"g"), 
+    (_, loop, arr, vName, iName, eol) => {
+      if (!arr) return `';}}${tmp}[0]+='`
+      const [defI, incI] = iName ? [`let ${iName}=-1;`,`${iName}++;`] : ["", ""]
+      const val = `${tmp}[${ctx.id++}]`
+      switch (loop) {
+        case "~":
+          return `';${val}=${unescape(arr)};if(${val}){${defI}for (const ${vName} of ${val}){${incI}${tmp}[0]+='`
+        case "~~":
+          const iter = iName ? `[${iName}, ${vName}] of Object.entries` : `${vName} of Object.values`
+          return `';${val}=${unescape(arr)};if(${val}){for (const ${iter}(${val})){${tmp}[0]+='`
+        default:
+          throw new Error(`unsupported syntax: ${loop} ${arr}:${vName}`)
+      }
+    }
+  )
+}
+
+const variables: SyntaxRule = (template, { delimiters: [start, end], args }) => 
+  template.replace(
+    new RegExp(`${start}(?:\\:\\s*([\\w]+))\s*${"(?:\\:\\s*([\\w]+))?".repeat(4)}${end}(\\r\\n|\\r|\\n)?`, "g"),
+    (_, ...names: any[]) => {
+      for (let i = 0; i < 5; i++) {
+        args[i] = names[i] || args[i] || `$${i+1}`
+      }
+      return ""
+    }
+  )
+
+const evaluate: SyntaxRule = (template, { varName: tmp, delimiters: [start, end] }) => 
+  template.replace(
+    new RegExp(`${start}([\\s\\S]+?(\\}?)+)${end}`,"g"), 
+    (_, code) => `';${unescape(code)};${tmp}[0]+='`
+  )
+
+const rules: SyntaxRule[] = [
+  variables,
+  inlineTemplate,
+  resolveDefs,
+  format,
+  interpolate,
+  typeInterpolate,
+  encode,
+  conditional,
+  iterate,
+  evaluate
+]
+
+/* istanbul ignore next */
+export const encodeHtml = (s: any) => {
+  const rules: Record<string, string> = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': "&#34;", "'": "&#39;", "/": "&#47;" }
+  return typeof s === "string" ? s.replace(/&(?!#?\w+;)|<|>|"|'|\//g, (m) => rules[m] || m) : s
+}
+
+const defaultOptions: TemplateOptions = {
+  args: "it",
+  varName: "$",
+  delimiters: ["{{", "}}"],
+  encoders: { "": encodeHtml },
+  strip: false,
+  def: {}
+}
+
+export const template = (body: string, options?: Partial<TemplateOptions>): RenderFunction => {
+  const opts = { ...defaultOptions, def: {}, ...options } as TemplateOptions
+  const { varName: tmp, delimiters: [s,e] } = opts
+  const args = Array.isArray(opts.args) ? opts.args : [opts.args]
+  const dependency = new Set<string>()
+  const ctx: RuleContext = { ...opts, id: 1, args, dependency, delimiters: [escape(s), escape(e)] }
+
+  rules.forEach((rule) => body = rule ? rule(body, ctx) : body)
+
+  const encoders = [...ctx.dependency].map((enc) => `${enc || 'html'}: ${dumpEncoder(ctx, enc)}`).join(",")
+
+  body = (`;${tmp}[0]='${body}';return ${tmp}[0];`)
     .replace(/\n/g, "\\n")
     .replace(/\t/g, "\\t")
     .replace(/\r/g, "\\r")
-    .replace(/(\s|;|\}|^|\{)out\+='';/g, "$1")
+    .replace(new RegExp(`(\\s|;|\\}|^|\\{)${escape(tmp)}\\[0\\]\\+='';`, "g"), "$1") // remove empty strings
     .replace(/\+''/g, "")
+  
+  body = `const ${tmp} = {${encoders}}${body}`
+  return new Function(...args, body) as RenderFunction
+}
 
-  const args = Array.isArray(options.argName) ? properties(options.argName) : options.argName
-
-  if (Object.keys(needEncoders).length === 0) {
-    return try_(() => new Function(args, str))
+const dumpEncoder = (ctx: RuleContext, encName: string) => {
+  const enc = ctx.encoders[encName]
+  if (!enc) {
+    throw new Error(`Unknown encoder "${encName}"`)
   }
-  checkEncoders(options, needEncoders)
-  str = `return function(${args}){${str}};`
-  return try_(() =>
-    options.selfContained
-      ? new Function((str = addEncoders(options, needEncoders) + str))()
-      : new Function(options.encodersPrefix, str)(options.encoders)
-  )
-
-  function try_(f: () => any) {
-    try {
-      return f()
-    } catch (e) {
-      throw e
+  if (typeof enc === "function") {
+    const code = enc.toString()
+    if (code.indexOf("[native code]") > -1) {
+      throw new Error(`Native function '${encName}' should be added to encoders as a string`)
     }
+    return code
   }
-}
-
-export function compile(tmpl: string, def?: Definitions): TemplateFunction {
-  return template(tmpl, undefined, def)
-}
-
-function getSyntax({start, end}: Delimiters): Syntax {
-  if (defaultOptions.delimiters.start === start && defaultOptions.delimiters.end === end) {
-    return defaultSyntax
-  }
-  start = escape(start)
-  end = escape(end)
-  const syntax = {} as Syntax
-  for (const syn in defaultSyntax) {
-    const s = defaultSyntax[syn as keyof Syntax]
-      .toString()
-      .replace(/\\\{\\\{/g, start)
-      .replace(/\\\}\\\}/g, end)
-    syntax[syn as keyof Syntax] = strToRegExp(s)
-  }
-  return syntax
-}
-
-function escape(str: string) {
-  return str.replace(escapeCharacters, "\\$1")
-}
-
-function strToRegExp(str: string) {
-  const [, rx, flags] = str.match(regexpPattern)!
-  return new RegExp(rx, flags)
-}
-
-function properties(args: string[]) {
-  return args.reduce((s, a, i) => s + (i ? "," : "") + a, "{") + "}"
-}
-
-function checkEncoders(options: TemplateOptions, encoders: Record<string, boolean>) {
-  const encoderType = options.selfContained ? "string" : "function"
-  for (const enc in encoders) {
-    const e = options.encoders[enc]
-    if (!e) throw new Error(`unknown encoder "${enc}"`)
-    if (typeof e !== encoderType)
-      throw new Error(`selfContained ${options.selfContained}: encoder type must be "${encoderType}"`)
-  }
-}
-
-function addEncoders(options: TemplateOptions, encoders: Record<string, boolean>) {
-  let s = ""
-  for (const enc in encoders) s += `const ${options.encodersPrefix}${enc}=${options.encoders[enc]};`
-  return s
-}
-
-const encodeHTMLRules: Record<string, string> = {
-  "&": "&#38;",
-  "<": "&#60;",
-  ">": "&#62;",
-  '"': "&#34;",
-  "'": "&#39;",
-  "/": "&#47;",
-}
-
-const matchHTML = /&(?!#?\w+;)|<|>|"|'|\//g
-
-export function encodeHtml(s: any) {
-  return typeof s === "string" ? s.replace(matchHTML, (m) => encodeHTMLRules[m] || m) : s
-}
+  return enc
+} 
