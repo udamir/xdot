@@ -73,7 +73,7 @@ const escapeQuotes: SyntaxRule = (t) => t.replace(/'|\\/g, "\\$&")
 const interpolate: SyntaxRule = (t, { argName, start, end, varName: v }) =>
   t.replace(
     new RegExp(`${start}(?:\\:\\s*((?:\\{[\\s\\S]+?\\})|(?:[\\w]+?))\\s*)?=([\\s\\S]+?)${end}`, "g"),
-    (_, arg, code) => argName 
+    (_, arg, code) => arg 
       ? `';{const ${arg}=${argName};${v}[0]+=(${unescape(code)})};${v}[0]+='` 
       : `'+(${unescape(code)})+'`
   )

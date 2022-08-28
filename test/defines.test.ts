@@ -38,6 +38,10 @@ describe("defines", () => {
       )
     })
 
+    it("should support func parameters", () => {
+      expect(t(`{{## testFn=({a,b})=>a+b#}}{{#def.testFn:it}}`)({a:1, b:2})).toEqual('3')
+    })
+
     function compiledDefinesParamTemplate(param: string) {
       return t(`{{##tmp:input:<div>{{=input.foo}}</div>#}}{{#def.tmp:${param}}}`)
     }
