@@ -8,13 +8,13 @@ This engine is based on [doT.js](https://github.com/olado/doT) by Laura Doktorov
 
 ### Differences from original package `dot@beta`:
 - TypeScript syntax
-- Arguments definition in tempalte: `{{:foo:baz}}`
-- Nested templates with params support: `{{$def.nested:it.data}}`
+- Arguments definition (inc. destructured) in tempalte: `{{:{foo,baz}=foo+baz}}`
+- Nested templates with parameter supported: `{{##nested : {foo,baz} :foo+baz#}}`
+- Recursion with nested templates supported
 - Blocks `{{# }}`, `{{? }}`, `{{~ }}`, `{{: }}` are not adding line breaks in template
 - Object iteration supported: `{{~~it :value :key }}`
 - Removed delimiter configuration globally via `SetDelimiters`
 - Strip option is `false` by default
-- Option `argName` renamed to `args`
 - Option `selfContained` removed. All encoders are self contained.
 - Options `internalPrefix` and `encodersPrefix` are replaced by `varName`
 - Jest tests instead of Mocha

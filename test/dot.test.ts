@@ -28,6 +28,8 @@ describe("interpolate 2 numbers", () => {
     expect(t("{{=it.one}}{{=it.two}}")({one: 1, two: 2})).toEqual("12")
     expect(t("{{= it.one}}{{= it.two}}")({one: 1, two: 2})).toEqual("12")
     expect(t("{{= it.one }}{{= it.two }}")({one: 1, two: 2})).toEqual("12")
+    expect(t("{{= it['one'] }}{{= it['two'] }}")({one: 1, two: 2})).toEqual("12")
+    expect(t("{{:{one}=one}}{{:{two}=two}}")({one: 1, two: 2})).toEqual("12")
   })
 })
 
@@ -155,12 +157,12 @@ describe("custom encoders", () => {
 
 describe("context destructuring", () => {
   it('should interpolate custom arguments', () => {
-    const tmpl = t("{{=foo}}{{=bar}}", {args: ["foo", "bar"]})
-    expect(tmpl(1, 2)).toEqual("12")
+    const tmpl = t("{{=foo}}{{=bar}}", {argName: "{ foo, bar }" })
+    expect(tmpl({ foo: 1, bar: 2 })).toEqual("12")
   })
   it('should interpolate arguments defined in template', () => {
-    const tmpl = t("{{:foo:bar}}{{=foo}}{{=bar}}")
-    expect(tmpl(1, 2)).toEqual("12")
+    const tmpl = t("{{:{foo,bar}=foo+bar}}")
+    expect(tmpl({ foo: 1, bar: 2 })).toEqual("3")
   })
 })
 

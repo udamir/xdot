@@ -10,7 +10,7 @@ describe("defines", () => {
 
   describe("without parameters", () => {
     it("should render define", () => {
-      testDef("{{##def.tmp:<div>{{=it.foo}}</div>#}}{{#def.tmp}}")
+      testDef("{{##tmp:it:<div>{{=it.foo}}</div>#}}{{#def.tmp}}")
     })
 
     it("should render define if it is passed to compile", () => {
@@ -24,12 +24,12 @@ describe("defines", () => {
 
   describe("with parameters", () => {
     it("should render define", () => {
-      testDef("{{##def.tmp:foo:<div>{{=foo}}</div>#}}{{ var bar = it.foo; }}{{# def.tmp:bar }}")
+      testDef("{{##tmp:{foo}:<div>{{=foo}}</div>#}}{{ var bar = it }}{{# def.tmp:bar }}")
     })
 
     it("should render define multiline params", () => {
       testDef(
-        "{{##def.tmp:data:{{=data.openTag}}{{=data.foo}}{{=data.closeTag}}#}}\n" +
+        "{{## tmp :data:{{=data.openTag}}{{=data.foo}}{{=data.closeTag}}#}}\n" +
           "{{# def.tmp:{\n" +
           "   foo: it.foo,\n" +
           '   openTag: "<div>",\n' +
@@ -39,7 +39,7 @@ describe("defines", () => {
     })
 
     function compiledDefinesParamTemplate(param: string) {
-      return t(`{{##def.tmp:input:<div>{{=input.foo}}</div>#}}{{#def.tmp:${param}}}`)
+      return t(`{{##tmp:input:<div>{{=input.foo}}</div>#}}{{#def.tmp:${param}}}`)
     }
 
     it("should render define with standard parameter", () => {
@@ -79,7 +79,7 @@ describe("defines", () => {
     })
 
     it("should render define with array literal as parameter", () => {
-      const tmpl = t("{{## def.tmp:foo:{{~foo:x}}{{=x}}{{~}}#}}{{# def.tmp:[1,2,3] }}")
+      const tmpl = t("{{## tmp:foo:{{~foo:x}}{{=x}}{{~}}#}}{{# def.tmp:[1,2,3] }}")
       expect(tmpl({})).toEqual("123")
     })
   })
