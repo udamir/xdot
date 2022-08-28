@@ -11,6 +11,7 @@ describe("defines", () => {
   describe("without parameters", () => {
     it("should render define", () => {
       testDef("{{##tmp:it:<div>{{=it.foo}}</div>#}}{{#def.tmp}}")
+      testDef("{{##def.tmp:it:<div>{{=it.foo}}</div>#}}{{#def.tmp}}")
     })
 
     it("should render define if it is passed to compile", () => {
