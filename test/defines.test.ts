@@ -30,7 +30,7 @@ describe("defines", () => {
 
     it("should render define multiline params", () => {
       testDef(
-        "{{## tmp :data:{{=data.openTag}}{{=data.foo}}{{=data.closeTag}}#}}\n" +
+        "{{## tmp :{openTag, foo, closeTag}:{{=openTag}}{{=foo}}{{=closeTag}}#}}\n" +
           "{{# def.tmp:{\n" +
           "   foo: it.foo,\n" +
           '   openTag: "<div>",\n' +
@@ -41,6 +41,10 @@ describe("defines", () => {
 
     it("should support func parameters", () => {
       expect(t(`{{## testFn=({a,b})=>a+b#}}{{#def.testFn:it}}`)({a:1, b:2})).toEqual('3')
+    })
+
+    it("should support template in template", () => {
+      expect(t(`{{#def.test1}}{{##test1:x:{{#def.test2:x}}#}}{{##test2=({a,b})=>a+b#}}`)({a:1, b:2})).toEqual('3')
     })
 
     function compiledDefinesParamTemplate(param: string) {

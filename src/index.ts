@@ -30,7 +30,8 @@ const inlineTemplate: SyntaxRule = (t, ctx): string => {
       }
       if (!(code in def)) {
         if (assign === ":") {
-          def[code] = template(tmpl, { ...ctx, argName: argName || ctx.argName })
+          def[code] = { argName: argName || ctx.argName, tmpl }
+
         } else {
           if (argName) {
             throw new Error(`Unexpected arguments: ${_}`)
@@ -48,16 +49,19 @@ const resolveDefs: SyntaxRule = (t, ctx): string => {
   return t.replace(
     new RegExp(`${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S]+?))?\\s*${end}(?:\\s*(\\r\\n|\\r|\\n))?`, "g"),
     (_, name: string, param: string, eol: string) => {
-      if (typeof def[name] === "function") {
-        if (!dependency.has(name)) {
-          dependency.add(`def.${name}`)
-        }
-        return `{{=${v}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
-      } else {
+      if (typeof def[name] === "string") {
         let tmpl = def[name]
         tmpl = param ? tmpl.replace(new RegExp(`(^|[^\\w$])${ctx.argName}([^\\w$])`, "g"),`$1${param}$2`) : tmpl
         return tmpl ? resolveDefs(tmpl, ctx) : tmpl
       }
+      if (!dependency.has(name)) {
+        dependency.add(`def.${name}`)
+        if (typeof def[name] === "object") {
+          const { tmpl, argName } = def[name]
+          def[name] = template(tmpl, { ...ctx, argName })
+        }
+      }
+      return `{{=${v}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
     }
   )
 }
