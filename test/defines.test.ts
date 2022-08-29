@@ -30,7 +30,7 @@ describe("defines", () => {
 
     it("should render define multiline params", () => {
       testDef(
-        "{{## tmp :{openTag, foo, closeTag}:{{=openTag}}{{=foo}}{{=closeTag}}#}}\n" +
+        "{{## tmp :{openTag, foo, closeTag}:\n{{=openTag}}{{=foo}}{{=closeTag}}#}}\n" +
           "{{# def.tmp:{\n" +
           "   foo: it.foo,\n" +
           '   openTag: "<div>",\n' +

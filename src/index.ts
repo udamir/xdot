@@ -23,7 +23,7 @@ const unescape = (code: string) => code.replace(/\\('|\\)/g, "$1").replace(/[\r\
 const inlineTemplate: SyntaxRule = (t, ctx): string => {
   const { start, end, def } = ctx
   return t.replace(
-    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\s\\S]+?)))?\\s*(\\:|=)([\\s\\S]+?)\\s*#${end}(?:\\s*(\\r\\n|\\r|\\n))?`,"g"),
+    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\s\\S]+?)))?\\s*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(?:\\s*(\\r\\n|\\r|\\n))?`,"g"),
     (_, code: string, argName: string, assign: string, tmpl: string, eol: string) => {
       if (code.indexOf("def.") === 0) {
         code = code.substring(4)
