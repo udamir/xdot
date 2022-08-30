@@ -5,12 +5,13 @@ export interface TemplateOptions {
   encoders: Record<string, Encoder | string>
   strip: boolean
   varName: string // internal variable name
+  defsName: string // internal definitions name
   delimiters: [string, string]
   def: Definitions
 }
 
 export type RenderFunction = (...args: any[]) => string
-type RuleContext = TemplateOptions & { id: number, dependency: Set<string>, start: string, end: string }
+type RuleContext = TemplateOptions & { id: number, dependency: Set<string>, start: string, end: string, nested?: boolean }
 type SyntaxRule = (template: string, ctx: RuleContext) => string
 type Definitions = Record<string, Function | any>
 type TypePrefix = "n" | "s" | "b"
@@ -23,7 +24,7 @@ const unescape = (code: string) => code.replace(/\\('|\\)/g, "$1").replace(/[\r\
 const inlineTemplate: SyntaxRule = (t, ctx): string => {
   const { start, end, def } = ctx
   return t.replace(
-    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\s\\S]+?)))?\\s*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(?:\\s*(\\r\\n|\\r|\\n))?`,"g"),
+    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\w]+?)))?\\s*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(?:\\s*(\\r\\n|\\r|\\n))?`,"g"),
     (_, code: string, argName: string, assign: string, tmpl: string, eol: string) => {
       if (code.indexOf("def.") === 0) {
         code = code.substring(4)
@@ -31,7 +32,6 @@ const inlineTemplate: SyntaxRule = (t, ctx): string => {
       if (!(code in def)) {
         if (assign === ":") {
           def[code] = { argName: argName || ctx.argName, tmpl }
-
         } else {
           if (argName) {
             throw new Error(`Unexpected arguments: ${_}`)
@@ -45,7 +45,7 @@ const inlineTemplate: SyntaxRule = (t, ctx): string => {
 }
 
 const resolveDefs: SyntaxRule = (t, ctx): string => {
-  const { start, end, def, dependency, varName: v } = ctx
+  const { start, end, def, dependency, defsName } = ctx
   return t.replace(
     new RegExp(`${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S]+?))?\\s*${end}(?:\\s*(\\r\\n|\\r|\\n))?`, "g"),
     (_, name: string, param: string, eol: string) => {
@@ -54,14 +54,14 @@ const resolveDefs: SyntaxRule = (t, ctx): string => {
         tmpl = param ? tmpl.replace(new RegExp(`(^|[^\\w$])${ctx.argName}([^\\w$])`, "g"),`$1${param}$2`) : tmpl
         return tmpl ? resolveDefs(tmpl, ctx) : tmpl
       }
-      if (!dependency.has(name)) {
+      if (!dependency.has(`def.${name}`)) {
         dependency.add(`def.${name}`)
         if (typeof def[name] === "object") {
           const { tmpl, argName } = def[name]
-          def[name] = template(tmpl, { ...ctx, argName })
+          def[name] = buildFn(tmpl, { ...ctx, argName, nested: true })
         }
       }
-      return `{{=${v}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
+      return `{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
     }
   )
 }
@@ -94,12 +94,12 @@ const typeInterpolate: SyntaxRule = (t, ctx) => {
   )
 }
 
-const encode: SyntaxRule = (t, { start, end, dependency, varName: v }) => 
+const encode: SyntaxRule = (t, { start, end, dependency, defsName }) => 
   t.replace(
     new RegExp(`${start}([a-z_$]+[\\w$]*)?!([\\s\\S]+?)${end}`,"g"), 
     (_, enc = "", code) => {
       dependency.add(enc || "")
-      return `'+${v}.${enc || "html"}(${unescape(code)})+'`
+      return `'+${defsName}.${enc || "html"}(${unescape(code)})+'`
     }
   )
 
@@ -162,33 +162,35 @@ export const encodeHtml = (s: any) => {
 const defaultOptions: TemplateOptions = {
   argName: "it",
   varName: "$",
+  defsName: "$$",
   delimiters: ["{{", "}}"],
   encoders: { "": encodeHtml },
   strip: false,
   def: {}
 }
 
-export const template = (body: string, options?: Partial<TemplateOptions>): RenderFunction => {
-  const opts = { ...defaultOptions, def: {}, ...options } as TemplateOptions
-  const { argName, varName: tmp, delimiters: [s,e] } = opts
-  const dependency = new Set<string>()
-  const ctx: RuleContext = { ...opts, id: 1, dependency, start: escape(s), end: escape(e) }
-
-  rules.forEach((rule) => body = rule ? rule(body, ctx) : body)
-
-  const encoders = [...ctx.dependency]
-    .map((dep) => `${dep.indexOf("def.") !== 0 ? dep || 'html' : dep.slice(4) }: ${depFunc(dep, ctx)}`)
-    .join(",")
+const buildFn = (body: string, ctx: RuleContext): RenderFunction => {
+  const { argName, varName: tmp, nested, defsName } = ctx
+  rules.forEach((rule) => body = rule(body, ctx))
 
   body = (`;${tmp}[0]='${body}';return ${tmp}[0];`)
-    .replace(/\n/g, "\\n")
-    .replace(/\t/g, "\\t")
-    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/\r/g, "\\r") // replace eol
     .replace(new RegExp(`(\\s|;|\\}|^|\\{)${escape(tmp)}\\[0\\]\\+='';`, "g"), "$1") // remove empty strings
     .replace(/\+''/g, "")
   
-  body = `const ${tmp} = {${encoders}}${body}`
+  let defs = nested ? "" : [...ctx.dependency]
+    .map((dep) => `${dep.indexOf("def.") !== 0 ? dep || 'html' : dep.slice(4) }: ${depFunc(dep, ctx)}`)
+    .join(",")
+  defs = defs ? `;const ${defsName}={${defs}}` : ""
+  body = `const ${tmp}=[]${defs}${body}`
   return new Function(argName, body) as RenderFunction
+}
+
+export const template = (body: string, options?: Partial<TemplateOptions>): RenderFunction => {
+  const opts = { ...defaultOptions, def: {}, ...options } as TemplateOptions
+  const [s,e] = opts.delimiters
+  const dependency = new Set<string>()
+  return buildFn(body, { ...opts, id: 1, dependency, start: escape(s), end: escape(e) })
 }
 
 const depFunc = (dep: string, ctx: RuleContext) => {

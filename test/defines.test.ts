@@ -47,9 +47,18 @@ describe("defines", () => {
       expect(t(`{{#def.test1}}{{##test1:x:{{#def.test2:x}}#}}{{##test2=({a,b})=>a+b#}}`)({a:1, b:2})).toEqual('3')
     })
 
+    it("should support recursion in template", () => {
+      const fn = t(`{{#def.test}}{{##test:{items, key}:{{=key}}{{? items}}:{{#def.test:items}}{{?}}#}}`)
+      expect(fn({items:{items: {key: "c"}, key: "b"}, key: "a"})).toEqual('a:b:c')
+    })
+
     function compiledDefinesParamTemplate(param: string) {
-      return t(`{{##tmp:input:<div>{{=input.foo}}</div>#}}{{#def.tmp:${param}}}`)
+      return t(`{{##tmp:<div>{{=it.foo}}</div>#}}{{#def.tmp:${param}}}`)
     }
+
+    it("should throw error when wrong definition", () => {
+      expect(() => t(`{{#def.test}}{{##test:val=JSON.stringify(val)#}}`)).toThrowError()
+    })
 
     it("should render define with standard parameter", () => {
       const definesParamCompiled = compiledDefinesParamTemplate("it")

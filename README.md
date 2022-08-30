@@ -16,7 +16,7 @@ This engine is based on [doT.js](https://github.com/olado/doT) by Laura Doktorov
 - Removed delimiter configuration globally via `SetDelimiters`
 - Strip option is `false` by default
 - Option `selfContained` removed. All encoders are self contained.
-- Options `internalPrefix` and `encodersPrefix` are replaced by `varName`
+- Options `internalPrefix` and `encodersPrefix` are replaced by `varName` and `defsName`
 - Jest tests instead of Mocha
 
 ## Features
