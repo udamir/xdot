@@ -30,7 +30,7 @@ describe("array iteration", () => {
     })
   
     it("should interpolate nested array even if the same index variable is used", () => {
-      expect(t("{{~it.arr:x:i}}{{~x:y:i}}{{=y}}{{~}}{{~}}")({ arr: [[1, 2, 3],[4, 5, 6]] })).toEqual("123456")
+      expect(t("{{~it.arr:x:i}}{{~x:y:j}}{{=y}}{{~}}{{~}}")({ arr: [[1, 2, 3],[4, 5, 6]] })).toEqual("123456")
     })
   })
   

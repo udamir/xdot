@@ -35,7 +35,7 @@ describe("defines", () => {
           "   foo: it.foo,\n" +
           '   openTag: "<div>",\n' +
           '   closeTag: "</div>"\n' +
-          "} }}"
+          "} -}}"
       )
     })
 

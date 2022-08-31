@@ -24,8 +24,8 @@ const unescape = (code: string) => code.replace(/\\('|\\)/g, "$1").replace(/[\r\
 const inlineTemplate: SyntaxRule = (t, ctx): string => {
   const { start, end, def } = ctx
   return t.replace(
-    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\w]+?)))?\\s*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(?:\\s*(\\r\\n|\\r|\\n))?`,"g"),
-    (_, code: string, argName: string, assign: string, tmpl: string, eol: string) => {
+    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\w]+?)))?\\x20*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(?:\\x20*(?:\\r\\n|\\r|\\n))?`,"g"),
+    (_, code: string, argName: string, assign: string, tmpl: string) => {
       if (code.indexOf("def.") === 0) {
         code = code.substring(4)
       }
@@ -47,12 +47,13 @@ const inlineTemplate: SyntaxRule = (t, ctx): string => {
 const resolveDefs: SyntaxRule = (t, ctx): string => {
   const { start, end, def, dependency, defsName } = ctx
   return t.replace(
-    new RegExp(`${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S]+?))?\\s*${end}(?:\\s*(\\r\\n|\\r|\\n))?`, "g"),
-    (_, name: string, param: string, eol: string) => {
+    new RegExp(`${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S]+?))?\\s*(-)?${end}(?:\\s*(\\r\\n|\\r|\\n))?`, "g"),
+    (_, name: string, param: string, removeEol = "", eol = "") => {
+      eol = removeEol ? "" : eol
       if (typeof def[name] === "string") {
         let tmpl = def[name]
         tmpl = param ? tmpl.replace(new RegExp(`(^|[^\\w$])${ctx.argName}([^\\w$])`, "g"),`$1${param}$2`) : tmpl
-        return tmpl ? resolveDefs(tmpl, ctx) : tmpl
+        return (tmpl ? resolveDefs(tmpl, ctx) : tmpl) + (eol)
       }
       if (!dependency.has(`def.${name}`)) {
         dependency.add(`def.${name}`)
@@ -61,7 +62,7 @@ const resolveDefs: SyntaxRule = (t, ctx): string => {
           def[name] = buildFn(tmpl, { ...ctx, argName, nested: true })
         }
       }
-      return `{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
+      return `{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}${eol}`
     }
   )
 }
@@ -105,28 +106,29 @@ const encode: SyntaxRule = (t, { start, end, dependency, defsName }) =>
 
 const conditional: SyntaxRule = (t, { varName: v, start, end }) =>
   t.replace(
-    new RegExp(`${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*${end}(\\r\\n|\\r|\\n)?`, "g"),
-    (_, elseCase, code, eol) => {
+    new RegExp(`${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*(-)?${end}(\\r\\n|\\r|\\n)?`, "g"),
+    (_, elseCase, code, removeEol = "", eol = "") => {
+      eol = removeEol ? "" : eol
       return code
-        ? `';${elseCase ? "}else " : ""}if(${unescape(code)}){${v}[0]+='`
-        : elseCase ? `';}else{${v}[0]+='` : `';}${v}[0]+='`
+        ? `${eol}';${elseCase ? "}else " : ""}if(${unescape(code)}){${v}[0]+='`
+        : elseCase ? `${eol}';}else{${v}[0]+='` : `${eol}';}${v}[0]+='`
     }
   )
 
 const iterate: SyntaxRule = (t, ctx) => {
   const { varName: v, start, end } = ctx
   return t.replace(
-    new RegExp(`${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*${end})(\\r\\n|\\r|\\n)?`,"g"), 
-    (_, loop, arr, vName, iName, eol) => {
-      if (!arr) return `';}}${v}[0]+='`
+    new RegExp(`${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*(-)?${end})(\\r\\n|\\r|\\n)?`,"g"), 
+    (_, loop, arr, vName, iName, removeEol = "", eol = "") => {
+      eol = removeEol ? "" : eol
+      if (!arr) return `${eol}';}${v}[0]+='`
       const [defI, incI] = iName ? [`let ${iName}=-1;`,`${iName}++;`] : ["", ""]
-      const val = `${v}[${ctx.id++}]`
       switch (loop) {
         case "~":
-          return `';${val}=${unescape(arr)};if(${val}){${defI}for (const ${vName} of ${val}){${incI}${v}[0]+='`
+          return `';${defI}for (const ${vName} of ${unescape(arr)} || []){${incI}${v}[0]+='`
         case "~~":
           const iter = iName ? `[${iName}, ${vName}] of Object.entries` : `${vName} of Object.values`
-          return `';${val}=${unescape(arr)};if(${val}){for (const ${iter}(${val})){${v}[0]+='`
+          return `';for (const ${iter}(${unescape(arr)} || {})){${v}[0]+='`
         default:
           throw new Error(`unsupported syntax: ${loop} ${arr}:${vName}`)
       }

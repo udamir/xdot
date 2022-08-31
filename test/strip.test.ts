@@ -13,7 +13,7 @@ describe("without index", () => {
 })
 
 describe("conditionals", () => {
-  const template = "{{?it.one < 2}}\n{{=it.one}}\n{{?}}\n{{=it.two}}"
+  const template = "{{?it.one < 2-}}\n{{=it.one}}\n{{?-}}\n{{=it.two}}"
 
   it("should evaluate condition and include template if valid", () => {
     expect(t(template, { strip: false })({one: 1, two: 2})).toEqual("1\n2")
