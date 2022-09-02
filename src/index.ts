@@ -24,7 +24,7 @@ const unescape = (code: string) => code.replace(/\\('|\\)/g, "$1").replace(/[\r\
 const inlineTemplate: SyntaxRule = (t, ctx): string => {
   const { start, end, def } = ctx
   return t.replace(
-    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\w]+?)))?\\x20*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(?:\\x20*(?:\\r\\n|\\r|\\n))?`,"g"),
+    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\w]+?)))?\\x20*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(\\s*)?`,"g"),
     (_, code: string, argName: string, assign: string, tmpl: string) => {
       if (code.indexOf("def.") === 0) {
         code = code.substring(4)
@@ -77,20 +77,24 @@ const escapeQuotes: SyntaxRule = (t) => t.replace(/'|\\/g, "\\$&")
 
 const interpolate: SyntaxRule = (t, { argName, start, end, varName: v }) =>
   t.replace(
-    new RegExp(`${start}(?:\\:\\s*((?:\\{[\\s\\S]+?\\})|(?:[\\w]+?))\\s*)?=([\\s\\S]+?)${end}`, "g"),
-    (_, arg, code) => arg 
-      ? `';{const ${arg}=${argName};${v}[0]+=(${unescape(code)})};${v}[0]+='` 
-      : `'+(${unescape(code)})+'`
+    new RegExp(`${start}(?:\\:\\s*((?:\\{[\\s\\S]+?\\})|(?:[\\w]+?))\\s*)?=([\\s\\S]+?)(-)?${end}(\\s*)?`, "g"),
+    (_, arg, code, removeEol = "", eol = "") => {
+      eol = removeEol ? "" : eol
+      return arg 
+        ? `';{const ${arg}=${argName};${v}[0]+=(${unescape(code)})};${v}[0]+='${eol}` 
+        : `'+(${unescape(code)})+'${eol}`
+    }
   )
 
 const typeInterpolate: SyntaxRule = (t, ctx) => {
   const { start, end, varName: v } = ctx
   return t.replace(
-    new RegExp(`${start}%([nsb])=([\\s\\S]+?)${end}`, "g"),
-    (_, typ: TypePrefix, code) => {
+    new RegExp(`${start}%([nsb])=([\\s\\S]+?)(-)?${end}(\\s*)?`, "g"),
+    (_, typ: TypePrefix, code, removeEol = "", eol = "") => {
+      eol = removeEol ? "" : eol
       const val = `${v}[${ctx.id++}]`
       const error = `throw new Error("expected ${TYPES[typ]}, got "+ (typeof ${val}))`
-      return `';${val}=(${unescape(code)});if(typeof ${val}!=="${TYPES[typ]}") ${error};${v}[0]+=${val}+'`
+      return `';${val}=(${unescape(code)});if(typeof ${val}!=="${TYPES[typ]}") ${error};${v}[0]+=${val}+'${eol}`
     }
   )
 }

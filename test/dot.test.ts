@@ -23,12 +23,26 @@ describe("encoding with doNotSkipEncoded=false", () => {
   })
 })
 
+describe("handle eol", () => {
+  it("should not remove eol", () => {
+    expect(t("{{=it.foo}}  \n{{=it.foo}}")({foo: "2"})).toEqual("2  \n2")
+    expect(t("{{=it.foo}}\n{{=it.foo}}")({foo: "2"})).toEqual("2\n2")
+    expect(t("{{=it.foo}} {{=it.foo}}")({foo: "2"})).toEqual("2 2")
+  })
+  it("should remove eol", () => {
+    expect(t("{{=it.foo-}}  \n{{=it.foo}}")({foo: "2"})).toEqual("22")
+    expect(t("{{=it.foo-}}\n{{=it.foo}}")({foo: "2"})).toEqual("22")
+    expect(t("{{=it.foo-}} {{=it.foo}}")({foo: "2"})).toEqual("22")
+  })
+})
+
 describe("interpolate 2 numbers", () => {
   it("should print numbers next to each other", () => {
     expect(t("{{=it.one}}{{=it.two}}")({one: 1, two: 2})).toEqual("12")
     expect(t("{{= it.one}}{{= it.two}}")({one: 1, two: 2})).toEqual("12")
     expect(t("{{= it.one }}{{= it.two }}")({one: 1, two: 2})).toEqual("12")
     expect(t("{{= it['one'] }}{{= it['two'] }}")({one: 1, two: 2})).toEqual("12")
+    expect(t("{{:data=data.one}}{{:param=param.two}}")({one: 1, two: 2})).toEqual("12")
     expect(t("{{:{one}=one}}{{:{two}=two}}")({one: 1, two: 2})).toEqual("12")
   })
 })

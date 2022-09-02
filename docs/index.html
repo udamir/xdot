@@ -10,7 +10,7 @@
     body {
       background-color: #f4f4f4;
       color: #555;
-      max-width: 800px;
+      max-width: 1200px;
       padding: 20px;
       font-size: 16px;
       font-weight: 200;
@@ -106,7 +106,8 @@
 
     code {
       font-size: 14px;
-      font-weight: bold
+      font-weight: bold;
+      white-space: break-spaces;
     }
 
     #sampletabs {
@@ -205,14 +206,15 @@
 </body>
 <script src="https://cdn.jsdelivr.net/npm/xdot@latest"></script>
 <script src="https://code.jquery.com/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.6/beautify.js"></script>
 
 <script type="text/javascript">
   const { template, encodeHtml } = xdot
   let strip = false
   const samples = {
     interpolation: {
-      template: "<div>Hi {{=it.name}}!</div>\n<div>{{=it.age || ''}}</div>",
-      data: { name: "Jake", age: 31 },
+      template: "<div>Hi {{=name}}!</div>\n<div>{{:data=data.age || ''}}</div>\n<div>{{:{email}=email || ''-}}     </div>",
+      data: { name: "Jake", age: 31, email: "jake@xyz.com" },
     },
     evaluation: {
       template: "{{ for(var prop in it) { }}\n<div>{{=prop}}</div>\n{{ } }}",
@@ -255,12 +257,18 @@
     var error
     try {
       var tmpdef = $.extend({}, def)
-      fn = template(tmpl, { strip, encoders:{ "": encodeHtml } }, tmpdef)
+      fn = template(tmpl, { strip, encoders:{ "": encodeHtml }, def: tmpdef })
     } catch (e) {
       fn = undefined
       error = "Template has an error: " + e
     }
-    bf.html(encodeHtml(fn.toString()))
+    const x = error ? "" : js_beautify(js_beautify(fn.toString(), { 
+      indent_size: "2", 
+      indent_char: " ", 
+      space_in_empty_paren: true, 
+      brace_style: "end-expand,preserve-inline" 
+    }))
+    bf.text(x)
     br.html(error ? "Fix the template" : encodeHtml(fn(data)).replace(/\n/g, "<br/>"))
   }
   function newSample(s) {
