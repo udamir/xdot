@@ -1,3 +1,6 @@
+const EOL = "\\x20*(?:\\r\\n|\\r|\\n)"
+const BOL = "(?:\\r\\n|\\r|\\n)\\x20*"
+
 export type Encoder = (data: any) => string
 
 export interface TemplateOptions {
@@ -24,7 +27,7 @@ const unescape = (code: string) => code.replace(/\\('|\\)/g, "$1").replace(/[\r\
 const inlineTemplate: SyntaxRule = (t, ctx): string => {
   const { start, end, def } = ctx
   return t.replace(
-    new RegExp(`${start}##\\s*([\\w\\.$]+)\\s*(?:\\:(\\s*(?:\\{\\s*[\\s\\S]+?\\s*\})|(?:[\\w]+?)))?\\x20*(\\:|=)(?:\\s*(?:\\r\\n|\\r|\\n))?([\\s\\S]+?)\\s*#${end}(\\s*)?`,"g"),
+    new RegExp(`(?:${BOL})?${start}##\\s*([\\w\\.$]+)\\s*(?:\\:\\s*((?:\\{\\s*[\\s\\S]+?\\s*\\})|(?:[\\w]+?)))?\\x20*(\\:|=)(?:${EOL})?([\\s\\S]+?)#${end}(?:\\s*)?`, "g"),
     (_, code: string, argName: string, assign: string, tmpl: string) => {
       if (code.indexOf("def.") === 0) {
         code = code.substring(4)
@@ -47,13 +50,12 @@ const inlineTemplate: SyntaxRule = (t, ctx): string => {
 const resolveDefs: SyntaxRule = (t, ctx): string => {
   const { start, end, def, dependency, defsName } = ctx
   return t.replace(
-    new RegExp(`${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S]+?))?\\s*(-)?${end}(?:\\s*(\\r\\n|\\r|\\n))?`, "g"),
-    (_, name: string, param: string, removeEol = "", eol = "") => {
-      eol = removeEol ? "" : eol
+    new RegExp(`(?:${BOL})?${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S]+?))?\\s*${end}(?:${EOL})?`, "g"),
+    (_, name: string, param: string) => {
       if (typeof def[name] === "string") {
         let tmpl = def[name]
         tmpl = param ? tmpl.replace(new RegExp(`(^|[^\\w$])${ctx.argName}([^\\w$])`, "g"),`$1${param}$2`) : tmpl
-        return (tmpl ? resolveDefs(tmpl, ctx) : tmpl) + (eol)
+        return (tmpl ? resolveDefs(tmpl, ctx) : tmpl)
       }
       if (!dependency.has(`def.${name}`)) {
         dependency.add(`def.${name}`)
@@ -62,7 +64,7 @@ const resolveDefs: SyntaxRule = (t, ctx): string => {
           def[name] = buildFn(tmpl, { ...ctx, argName, nested: true })
         }
       }
-      return `{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}${eol}`
+      return `{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
     }
   )
 }
@@ -77,24 +79,23 @@ const escapeQuotes: SyntaxRule = (t) => t.replace(/'|\\/g, "\\$&")
 
 const interpolate: SyntaxRule = (t, { argName, start, end, varName: v }) =>
   t.replace(
-    new RegExp(`${start}(?:\\:\\s*((?:\\{[\\s\\S]+?\\})|(?:[\\w]+?))\\s*)?=([\\s\\S]+?)(-)?${end}(\\s*)?`, "g"),
-    (_, arg, code, removeEol = "", eol = "") => {
-      eol = removeEol ? "" : eol
-      return arg 
-        ? `';{const ${arg}=${argName};${v}[0]+=(${unescape(code)})};${v}[0]+='${eol}` 
-        : `'+(${unescape(code)})+'${eol}`
-    }
+    new RegExp(`${start}(?:\\:\\s*((?:\\{[\\s\\S]+?\\})|(?:[\\w]+?))\\s*)?=([\\s\\S]+?)${end}`, "g"),
+    (_, arg, code) => arg 
+        ? `';{const ${arg}=${argName};${v}[0]+=(${unescape(code)})};${v}[0]+='` 
+        : `'+(${unescape(code)})+'`
   )
+
+const removeSpaces: SyntaxRule = (t, { start, end }) =>
+  t.replace(new RegExp(`(\\s*)?${start}-${end}(\\s*)?`, "g"), "")
 
 const typeInterpolate: SyntaxRule = (t, ctx) => {
   const { start, end, varName: v } = ctx
   return t.replace(
-    new RegExp(`${start}%([nsb])=([\\s\\S]+?)(-)?${end}(\\s*)?`, "g"),
-    (_, typ: TypePrefix, code, removeEol = "", eol = "") => {
-      eol = removeEol ? "" : eol
+    new RegExp(`${start}%([nsb])=([\\s\\S]+?)${end}`, "g"),
+    (_, typ: TypePrefix, code) => {
       const val = `${v}[${ctx.id++}]`
       const error = `throw new Error("expected ${TYPES[typ]}, got "+ (typeof ${val}))`
-      return `';${val}=(${unescape(code)});if(typeof ${val}!=="${TYPES[typ]}") ${error};${v}[0]+=${val}+'${eol}`
+      return `';${val}=(${unescape(code)});if(typeof ${val}!=="${TYPES[typ]}") ${error};${v}[0]+=${val}+'`
     }
   )
 }
@@ -110,22 +111,18 @@ const encode: SyntaxRule = (t, { start, end, dependency, defsName }) =>
 
 const conditional: SyntaxRule = (t, { varName: v, start, end }) =>
   t.replace(
-    new RegExp(`${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*(-)?${end}(\\r\\n|\\r|\\n)?`, "g"),
-    (_, elseCase, code, removeEol = "", eol = "") => {
-      eol = removeEol ? "" : eol
-      return code
-        ? `${eol}';${elseCase ? "}else " : ""}if(${unescape(code)}){${v}[0]+='`
-        : elseCase ? `${eol}';}else{${v}[0]+='` : `${eol}';}${v}[0]+='`
-    }
+    new RegExp(`(?:${BOL})?${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*${end}(?:${EOL})?`, "g"),
+    (_, elseCase, code) => code
+        ? `';${elseCase ? "}else " : ""}if(${unescape(code)}){${v}[0]+='`
+        : elseCase ? `';}else{${v}[0]+='` : `';}${v}[0]+='`
   )
 
 const iterate: SyntaxRule = (t, ctx) => {
   const { varName: v, start, end } = ctx
   return t.replace(
-    new RegExp(`${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*(-)?${end})(\\r\\n|\\r|\\n)?`,"g"), 
-    (_, loop, arr, vName, iName, removeEol = "", eol = "") => {
-      eol = removeEol ? "" : eol
-      if (!arr) return `${eol}';}${v}[0]+='`
+    new RegExp(`(?:${BOL})?${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*${end})(?:${EOL})?`,"g"), 
+    (_, loop, arr, vName, iName) => {
+      if (!arr) return `';}${v}[0]+='`
       const [defI, incI] = iName ? [`let ${iName}=-1;`,`${iName}++;`] : ["", ""]
       switch (loop) {
         case "~":
@@ -150,6 +147,7 @@ const rules: SyntaxRule[] = [
   inlineTemplate,
   resolveDefs,
   stripTemplate,
+  removeSpaces,
   escapeQuotes,
   interpolate,
   typeInterpolate,

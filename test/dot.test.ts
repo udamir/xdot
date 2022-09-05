@@ -30,9 +30,10 @@ describe("handle eol", () => {
     expect(t("{{=it.foo}} {{=it.foo}}")({foo: "2"})).toEqual("2 2")
   })
   it("should remove eol", () => {
-    expect(t("{{=it.foo-}}  \n{{=it.foo}}")({foo: "2"})).toEqual("22")
-    expect(t("{{=it.foo-}}\n{{=it.foo}}")({foo: "2"})).toEqual("22")
-    expect(t("{{=it.foo-}} {{=it.foo}}")({foo: "2"})).toEqual("22")
+    expect(t("{{=it.foo}}{{-}}  \n{{=it.foo}}")({foo: "2"})).toEqual("22")
+    expect(t("{{=it.foo}}{{-}}\n{{=it.foo}}")({foo: "2"})).toEqual("22")
+    expect(t("{{=it.foo}}{{-}} {{=it.foo}}")({foo: "2"})).toEqual("22")
+    expect(t("{{=it.foo}}\r {{-}} \n{{=it.foo}}")({foo: "2"})).toEqual("22")
   })
 })
 
