@@ -204,7 +204,7 @@
   Check <a href="https://github.com/udamir/xdot/blob/master/examples/example.md">advanced sample</a> for hints on how to
   use defines and partials.
 </body>
-<script src="https://cdn.jsdelivr.net/npm/xdot@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/xdot@2.3.0"></script>
 <script src="https://code.jquery.com/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.6/beautify.js"></script>
 
@@ -213,7 +213,7 @@
   let strip = false
   const samples = {
     interpolation: {
-      template: "<div>Hi {{=name}}!</div>\n<div>{{:data=data.age || ''}}</div>\n<div>{{:{email}=email || ''-}}     </div>",
+      template: "<div>Hi {{=name}}!</div>\n<div>{{:data=data.age || ''}}</div>\n<div>{{:{email}=email || ''}}</div>",
       data: { name: "Jake", age: 31, email: "jake@xyz.com" },
     },
     evaluation: {
