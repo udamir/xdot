@@ -1,5 +1,5 @@
-const EOL = "\\x20*(?:\\r\\n|\\r|\\n)"
-const BOL = "(?:\\r\\n|\\r|\\n)\\x20*"
+const EOL = "[ \\t]*(?:\\r\\n|\\r|\\n)"
+const BOL = "(?:\\r\\n|\\r|\\n)[ \\t]*"
 
 export type Encoder = (data: any) => string
 
@@ -27,7 +27,7 @@ const unescape = (code: string) => code.replace(/\\('|\\)/g, "$1").replace(/[\r\
 const inlineTemplate: SyntaxRule = (t, ctx): string => {
   const { start, end, def } = ctx
   return t.replace(
-    new RegExp(`(?:${BOL})?${start}##\\s*([\\w\\.$]+)\\s*(?:\\:\\s*((?:\\{\\s*[\\s\\S]+?\\s*\\})|(?:[\\w]+?)))?\\x20*(\\:|=)(?:${EOL})?([\\s\\S]+?)#${end}(?:\\s*)?`, "g"),
+    new RegExp(`(?:${BOL})?${start}##\\s*([\\w\\.$]+)\\s*(?:\\:\\s*((?:\\{\\s*[\\s\\S]+?\\s*\\})|(?:[\\w]+?)))?[ ]*(\\:|=)(?:${EOL})?([\\s\\S]+?)#${end}(?:\\s*)?`, "g"),
     (_, code: string, argName: string, assign: string, tmpl: string) => {
       if (code.indexOf("def.") === 0) {
         code = code.substring(4)
@@ -72,7 +72,7 @@ const resolveDefs: SyntaxRule = (t, ctx): string => {
 const stripTemplate: SyntaxRule = (t, { strip }) => 
   !strip ? t : t.trim()
     .replace(/[\t ]+(\r|\n)/g, "\n") // remove trailing spaces
-    .replace(/(\r|\n)[\t ]+/g, " ") // leading spaces reduced to " "
+    .replace(/(\r|\n)[\t ]+/g, "") // remove leading spaces
     .replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g, "") // remove breaks, tabs and JS comments
 
 const escapeQuotes: SyntaxRule = (t) => t.replace(/'|\\/g, "\\$&")

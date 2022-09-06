@@ -5,16 +5,19 @@ describe("conditionals", () => {
     const templates = [
       "{{?it.one < 2}}{{=it.one}}{{?}}{{=it.two}}",
       "{{? it.one < 2 }}{{= it.one }}{{?}}{{= it.two }}",
+      "\n   {{? it.one < 2 }}  \r{{= it.one }}\n  {{?}}   \n{{= it.two }}",
     ]
 
     it("should evaluate condition and include template if valid", () => {
       expect(t(templates[0])({one: 1, two: 2})).toEqual("12")
       expect(t(templates[1])({one: 1, two: 2})).toEqual("12")
+      expect(t(templates[2])({one: 1, two: 2})).toEqual("12")
     })
 
     it("should evaluate condition and do NOT include template if invalid", () => {
       expect(t(templates[0])({one: 3, two: 2})).toEqual("2")
       expect(t(templates[1])({one: 3, two: 2})).toEqual("2")
+      expect(t(templates[2])({one: 3, two: 2})).toEqual("2")
     })
   })
 
