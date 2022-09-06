@@ -1,5 +1,5 @@
-const EOL = "[ \\t]*(?:\\r\\n|\\r|\\n)"
-const BOL = "(?:\\r\\n|\\r|\\n)[ \\t]*"
+const EOL = "[\\t ]*(?:\\r\\n|\\r|\\n|$)"
+const BOL = "(?:\\r\\n|\\r|\\n|^)[\\t ]*"
 
 export type Encoder = (data: any) => string
 
@@ -147,13 +147,13 @@ const rules: SyntaxRule[] = [
   inlineTemplate,
   resolveDefs,
   stripTemplate,
-  removeSpaces,
   escapeQuotes,
+  iterate,
+  conditional,
   interpolate,
   typeInterpolate,
   encode,
-  conditional,
-  iterate,
+  removeSpaces,
   evaluate
 ]
 
