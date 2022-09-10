@@ -1,5 +1,5 @@
-const EOL = "[\\t ]*(?:\\r\\n|\\r|\\n|$)"
-const BOL = "(?:\\r\\n|\\r|\\n|^)[\\t ]*"
+const EOL = "[\\t ]*(?:\\r\\n|\\r|\\n|\\x13|$)"
+const BOL = "(?:\\r\\n|\\r|\\n|\\x13|^)[\\t ]*"
 
 export type Encoder = (data: any) => string
 
@@ -50,12 +50,14 @@ const inlineTemplate: SyntaxRule = (t, ctx): string => {
 const resolveDefs: SyntaxRule = (t, ctx): string => {
   const { start, end, def, dependency, defsName } = ctx
   return t.replace(
-    new RegExp(`(?:${BOL})?${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S]+?))?\\s*${end}(?:${EOL})?`, "g"),
-    (_, name: string, param: string) => {
+    // (?:(?:\r\n|\r|\n|^)[\t ]*)?\{\{#\s*def(?:\.|\[[\'\"])([\w$]+)(?:[\'\"]\])?\s*(?:\:\s*([\s\S]+?\}?))?\s*\}\}(?:[\t ]*(?:\r\n|\r|\n|$))?
+    new RegExp(`(${BOL})?${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S\\}]+?\\}?))?\\s*${end}(${EOL})?`, "g"),
+    (_, bol="", name: string, param: string, eol="") => {
+      bol = bol.replace(/[\t ]*/g, "")
       if (typeof def[name] === "string") {
         let tmpl = def[name]
         tmpl = param ? tmpl.replace(new RegExp(`(^|[^\\w$])${ctx.argName}([^\\w$])`, "g"),`$1${param}$2`) : tmpl
-        return (tmpl ? resolveDefs(tmpl, ctx) : tmpl)
+        return bol + (tmpl ? resolveDefs(tmpl, ctx) : tmpl) + (eol ? "\x13" : "")
       }
       if (!dependency.has(`def.${name}`)) {
         dependency.add(`def.${name}`)
@@ -64,7 +66,7 @@ const resolveDefs: SyntaxRule = (t, ctx): string => {
           def[name] = buildFn(tmpl, { ...ctx, argName, nested: true })
         }
       }
-      return `{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
+      return `${bol}{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}${eol ? "\x13" : ""}`
     }
   )
 }
@@ -111,25 +113,29 @@ const encode: SyntaxRule = (t, { start, end, dependency, defsName }) =>
 
 const conditional: SyntaxRule = (t, { varName: v, start, end }) =>
   t.replace(
-    new RegExp(`(?:${BOL})?${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*${end}(?:${EOL})?`, "g"),
-    (_, elseCase, code) => code
-        ? `';${elseCase ? "}else " : ""}if(${unescape(code)}){${v}[0]+='`
-        : elseCase ? `';}else{${v}[0]+='` : `';}${v}[0]+='`
+    new RegExp(`(${BOL})?${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*${end}(${EOL})?`, "g"),
+    (_, bol="", elseCase, code, eol="") => {
+      bol = bol.replace(/[\t ]*/g, "")
+      return code
+        ? `${bol}';${elseCase ? "}else " : ""}if(${unescape(code)}){${v}[0]+='${eol ? "\x13" : ""}`
+        : elseCase ? `${bol}';}else{${v}[0]+='` : `';}${v}[0]+='${eol ? "\x13" : ""}`
+    }
   )
 
 const iterate: SyntaxRule = (t, ctx) => {
   const { varName: v, start, end } = ctx
   return t.replace(
-    new RegExp(`(?:${BOL})?${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*${end})(?:${EOL})?`,"g"), 
-    (_, loop, arr, vName, iName) => {
+    new RegExp(`(${BOL})?${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*${end})(${EOL})?`,"g"), 
+    (_, bol="", loop, arr, vName, iName, eol="") => {
+      bol = bol.replace(/[\t ]*/g, "")
       if (!arr) return `';}${v}[0]+='`
       const [defI, incI] = iName ? [`let ${iName}=-1;`,`${iName}++;`] : ["", ""]
       switch (loop) {
         case "~":
-          return `';${defI}for (const ${vName} of ${unescape(arr)} || []){${incI}${v}[0]+='`
+          return `${bol}';${defI}for (const ${vName} of ${unescape(arr)} || []){${incI}${v}[0]+='${eol ? "\x13" : ""}`
         case "~~":
           const iter = iName ? `[${iName}, ${vName}] of Object.entries` : `${vName} of Object.values`
-          return `';for (const ${iter}(${unescape(arr)} || {})){${v}[0]+='`
+          return `${bol}';for (const ${iter}(${unescape(arr)} || {})){${v}[0]+='${eol ? "\x13" : ""}`
         default:
           throw new Error(`unsupported syntax: ${loop} ${arr}:${vName}`)
       }
@@ -180,7 +186,7 @@ const buildFn = (body: string, ctx: RuleContext): RenderFunction => {
   body = (`;${tmp}[0]='${body}';return ${tmp}[0];`)
     .replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/\r/g, "\\r") // replace eol
     .replace(new RegExp(`(\\s|;|\\}|^|\\{)${escape(tmp)}\\[0\\]\\+='';`, "g"), "$1") // remove empty strings
-    .replace(/\+''/g, "")
+    .replace(/\+''|\x13/g, "")
   
   let defs = nested ? "" : [...ctx.dependency]
     .map((dep) => `${dep.indexOf("def.") !== 0 ? dep || 'html' : dep.slice(4) }: ${depFunc(dep, ctx)}`)

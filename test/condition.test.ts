@@ -5,7 +5,7 @@ describe("conditionals", () => {
     const templates = [
       "{{?it.one < 2}}{{=it.one}}{{?}}{{=it.two}}",
       "{{? it.one < 2 }}{{= it.one }}{{?}}{{= it.two }}",
-      "\n   {{? it.one < 2 }}  \r{{= it.one }}\n  {{?}}   \n{{= it.two }}",
+      "{{? it.one < 2 }}  \r{{= it.one }}\n  {{?}}   \n{{= it.two }}",
     ]
 
     it("should evaluate condition and include template if valid", () => {

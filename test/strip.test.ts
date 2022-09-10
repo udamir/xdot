@@ -7,7 +7,7 @@ describe("without index", () => {
   })
 
   it("should concatenate items", () => {
-    expect(t("0\n   {{~it.arr:x}}\n{{=x}}\n\n{{~}}", { strip: false })({arr: [1, 2, 3]})).toEqual("01\n2\n3\n")
+    expect(t("0\n   {{~it.arr:x}}\n{{=x}}\n\n{{~}}", { strip: false })({arr: [1, 2, 3]})).toEqual("0\n1\n2\n3\n")
     expect(t("0\n   {{~it.arr:x}}\n{{=x}}\n\n{{~}}", { strip: true })({arr: [1, 2, 3]})).toEqual("0123")
   })
 })
