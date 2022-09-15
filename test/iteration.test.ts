@@ -73,6 +73,10 @@ describe("object iteration", () => {
   it("should concatenate values", () => {
     expect(t("{{~~it.obj:v}}{{=v}}{{~}}")(data)).toEqual("123")
   })
+
+  it("should ingone white spaces", () => {
+    expect(t("{{~~it.obj:v}}{{=v}}{{~}}\n  {{? it.obj}}0{{?}}")(data)).toEqual("1230")
+  })
 })
 
 describe("handle wrong syntax", () => {

@@ -1,5 +1,5 @@
-const EOL = "[\\t ]*(?:\\r\\n|\\r|\\n|$)"
-const BOL = "(?:\\r\\n|\\r|\\n|^)?[\\t ]*"
+const EOL = "[\\t ]*(?:\\r\\n|\\r|\\n|\\x13|$)"
+const BOL = "(?:\\r\\n|\\r|\\n|\\x13|^)?[\\t ]*"
 
 export type Encoder = (data: any) => string
 
@@ -14,7 +14,7 @@ export interface TemplateOptions {
 }
 
 export type RenderFunction = (...args: any[]) => string
-type RuleContext = TemplateOptions & { dependency: Set<string>, start: string, end: string, nested?: boolean, br: number[] }
+type RuleContext = TemplateOptions & { dependency: Set<string>, start: string, end: string, nested?: boolean }
 type SyntaxRule = (template: string, ctx: RuleContext) => string
 type Definitions = Record<string, Function | any>
 type TypePrefix = "n" | "s" | "b"
@@ -48,17 +48,16 @@ const inlineTemplate: SyntaxRule = (t, ctx): string => {
 }
 
 const resolveDefs: SyntaxRule = (t, ctx): string => {
-  const { start, end, def, dependency, defsName, br } = ctx
+  const { start, end, def, dependency, defsName } = ctx
   return t.replace(
     // (?:[\t ]*)?\{\{#\s*def(?:\.|\[[\'\"])([\w$]+)(?:[\'\"]\])?\s*(?:\:\s*([\s\S]+?\}?))?\s*\}\}(?:[\t ]*(?:\r\n|\r|\n|$))?
     new RegExp(`(${BOL})?${start}#\\s*def(?:\\.|\\[[\\'\\"])([\\w$]+)(?:[\\'\\"]\\])?\\s*(?:\\:\\s*([\\s\\S\\}]+?\\}?))?\\s*${end}(${EOL})?`, "g"),
-    (_, bol="", name: string, param: string, eol="", n: number) => {
-      bol = (!n || (/\r\n|\r|\n/g).test(bol) || br.includes(n-1)) ? bol.replace(/[\t ]*/g, "") : bol
-      eol && br.push(n + _.length - 1)
+    (_, bol="", name: string, param: string, eol="", n, s) => {
+      bol = (!n || (/\r\n|\r|\n|\x13/g).test(bol) || (/\r|\n|\x13/g).test(s[n-1])) ? bol.replace(/[\t ]*/g, "") : bol
       if (typeof def[name] === "string") {
         let tmpl = def[name]
         tmpl = param ? tmpl.replace(new RegExp(`(^|[^\\w$])${ctx.argName}([^\\w$])`, "g"),`$1${param}$2`) : tmpl
-        return bol + (tmpl ? resolveDefs(tmpl, ctx) : tmpl)
+        return bol + (tmpl ? resolveDefs(tmpl, ctx) : tmpl) + (eol ? "\x13" : "")
       }
       if (!dependency.has(`def.${name}`)) {
         dependency.add(`def.${name}`)
@@ -67,7 +66,7 @@ const resolveDefs: SyntaxRule = (t, ctx): string => {
           def[name] = buildFn(tmpl, { ...ctx, argName, nested: true })
         }
       }
-      return `${bol}{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}`
+      return `${bol}{{=${defsName}.${name}(${param ? stripTemplate(param, { ...ctx, strip: true }) : ctx.argName})}}${eol ? "\x13" : ""}`
     }
   )
 }
@@ -112,33 +111,31 @@ const encode: SyntaxRule = (t, { start, end, dependency, defsName }) =>
     }
   )
 
-const conditional: SyntaxRule = (t, { varName: v, start, end, br }) =>
+const conditional: SyntaxRule = (t, { varName: v, start, end }) =>
   t.replace(
     new RegExp(`(${BOL})?${start}\\?(\\?)?\\s*([\\s\\S]*?)\\s*${end}(${EOL})?`, "g"),
-    (_, bol="", elseCase, code, eol="", n) => {
-      const s = !n || (/\r\n|\r|\n/g).test(bol) || br.includes(n-1) 
-      eol && br.push(n + _.length - 1)
+    (_, bol="", elseCase, code, eol="", n, s) => {
+      const b = !n || (/\r\n|\r|\n|\x13/g).test(bol) || (/\r|\n|\x13/g).test(s[n-1])
       return code
-        ? (elseCase ? `${ bol.replace(s && /[\t ]*/g, "") }';}else ` : `${ s ? "" : bol }';`) + `if(${unescape(code)}){${v}+='`
-        : (s ? "" : bol) + (elseCase ? `';}else{${v}+='` : `';}${v}+='`)
+        ? (elseCase ? `${ bol.replace(b && /[\t ]*/g, "") }';}else ` : `${ b ? "" : bol }';`) + `if(${unescape(code)}){${v}+='${eol ? "\x13" : ""}`
+        : (b ? "" : bol) + (elseCase ? `';}else{${v}+='${eol ? "\x13" : ""}` : `';}${v}+='${eol ? "\x13" : ""}`)
     }
   )
 
 const iterate: SyntaxRule = (t, ctx) => {
-  const { varName: v, start, end, br } = ctx
+  const { varName: v, start, end } = ctx
   return t.replace(
     new RegExp(`(${BOL})?${start}(~+)\\s*(?:${end}|([\\s\\S]+?)\\s*\\:\\s*([\\w$]+)\\s*(?:\\:\\s*([\\w$]+))?\\s*${end})(${EOL})?`,"g"), 
-    (_, bol="", loop, arr, vName, iName, eol="", n: number) => {
-      const s = !n || (/\r\n|\r|\n/g).test(bol) || br.includes(n-1)
-      eol && br.push(n + _.length - 1)
-      if (!arr) return `${ s ? "" : bol }';}${v}+='`
+    (_, bol="", loop, arr, vName, iName, eol="", n: number, s: string) => {
+      const b = !n || (/\r\n|\r|\n|\x13/g).test(bol) || (/\r|\n|\x13/g).test(s[n-1])
+      if (!arr) return `${ b ? "" : bol }';}${v}+='${eol ? "\x13" : ""}`
       const [defI, incI] = iName ? [`let ${iName}=-1;`,`${iName}++;`] : ["", ""]
       switch (loop) {
         case "~":
-          return `${ bol.replace(s && /[\t ]*/g, "") }';${defI}for (const ${vName} of ${unescape(arr)} || []){${incI}${v}+='`
+          return `${ bol.replace(b && /[\t ]*/g, "") }';${defI}for (const ${vName} of ${unescape(arr)} || []){${incI}${v}+='${eol ? "\x13" : ""}`
         case "~~":
           const iter = iName ? `[${iName}, ${vName}] of Object.entries` : `${vName} of Object.values`
-          return `${ bol.replace(s && /[\t ]*/g, "") }';for (const ${iter}(${unescape(arr)} || {})){${v}+='`
+          return `${ bol.replace(b && /[\t ]*/g, "") }';for (const ${iter}(${unescape(arr)} || {})){${v}+='${eol ? "\x13" : ""}`
         default:
           throw new Error(`unsupported syntax: ${loop} ${arr}:${vName}`)
       }
@@ -185,7 +182,7 @@ const buildFn = (body: string, ctx: RuleContext): RenderFunction => {
   body = (`;${v}='${body}';return ${v};`)
     .replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/\r/g, "\\r") // replace eol
     .replace(new RegExp(`(\\s|;|\\}|^|\\{)${escape(v)}\\[0\\]\\+='';`, "g"), "$1") // remove empty strings
-    .replace(/\+''/g, "")
+    .replace(/\+''|\x13/g, "")
   
   let defs = nested ? "" : [...ctx.dependency]
     .map((dep) => `${dep.indexOf("def.") !== 0 ? dep || 'html' : dep.slice(4) }: ${depFunc(dep, ctx)}`)
@@ -199,7 +196,7 @@ export const template = (body: string, options?: Partial<TemplateOptions>): Rend
   const opts = { ...defaultOptions, def: {}, ...options } as TemplateOptions
   const [s,e] = opts.delimiters
   const dependency = new Set<string>()
-  return buildFn(body, { ...opts, dependency, start: escape(s), end: escape(e), br: [] })
+  return buildFn(body, { ...opts, dependency, start: escape(s), end: escape(e) })
 }
 
 const depFunc = (dep: string, ctx: RuleContext) => {
