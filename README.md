@@ -57,7 +57,7 @@ It is strongly recommended to compile all templates to JS code as early as possi
 
 - using xDoT as dev-dependency only and compiling templates to JS files, for example, as described above or using a custom script, during the build. This is the most performant and secure approach and it is strongly recommended.
 - if the above approach is not possible for some reason (e.g. templates are dynamically generated using some run-time data), it is recommended to compile templates to in-memory functions during application start phase, before any external input is processed.
-- compiling templates lazily, on demand, is less safe. Even though the possibility of the code injection via prototype pollution was patched (#291), there may be some other unknown vulnerabilities that could lead to code injection.
+- compiling templates lazily, on demand, is less safe. There may be some other unknown vulnerabilities that could lead to code injection.
 
 ## Contributing
 When contributing, keep in mind that it is an objective of `xdot` to have no package dependencies. This may change in the future, but for now, no-dependencies.
